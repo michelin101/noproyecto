@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { connectMQTT } from './services/mqttService';
 import RutaProtegida from './components/RutaProtegida';
@@ -65,17 +65,21 @@ function Layout({ datosSensores }) {
 
 function AppRoutes({ datosSensores }) {
   const location = useLocation();
-  const enLogin = location.pathname === "/login";
-
-  if (enLogin) {
+  const autenticado = sessionStorage.getItem('autenticado') === 'true';
+  if (location.pathname === '/login') {
     return (
       <Routes>
-        <Route path='/login' element={<Login />} />
+        <Route path="/login" element={<Login />} />
       </Routes>
     );
   }
-  return <Layout datosSensores={datosSensores} />;
+
+  if (!autenticado) {
+    return <Navigate to="/login" replace />
+  }
+  return <Layout datosSensores={datosSensores} />
 }
+
 
 function App() {
   const [datosSensores, setDatosSensores] = useState({});
