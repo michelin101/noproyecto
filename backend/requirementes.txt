@@ -1,0 +1,6 @@
+flask
+falsk-cors
+pymongo
+certifi
+python-dotenv
+gunicorn

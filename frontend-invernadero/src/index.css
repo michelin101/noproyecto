@@ -1,0 +1,64 @@
+:root {
+  --bg-dark: #0f172a;
+  --bg-panel: #1e293b;
+  --border-color: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --color-green: #10b981;
+  --color-red: #ef4444;
+  --color-blue: #3b82f6;
+  --color-orange: #f97316;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { 
+  background-color: var(--bg-dark); 
+  color: var(--text-main); 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  padding: 20px; 
+}
+
+.app-container { max-width: 1300px; margin: 0 auto; }
+
+/* Navbar */
+.navbar { 
+  display: flex; justify-content: space-between; align-items: center; 
+  border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 25px; 
+}
+.navbar h1 { color: var(--color-green); font-size: 1.8rem; }
+.navbar p { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+.nav-links { display: flex; gap: 10px; margin-top: 15px; }
+.nav-links a { 
+  color: var(--text-main); text-decoration: none; padding: 8px 16px; 
+  border-radius: 6px; background: var(--border-color); font-size: 0.9rem; transition: 0.2s;
+}
+.nav-links a:hover { background: var(--color-blue); }
+.status-badge { font-size: 1.5rem; font-weight: bold; color: var(--color-green); animation: pulse 2s infinite; }
+
+/* Grids y Tarjetas */
+.grid-dashboard { display: grid; grid-template-columns: 1fr; gap: 20px; }
+@media (min-width: 1024px) { .grid-dashboard { grid-template-columns: 350px 1fr; } }
+.grid-sensores { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+
+.card { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+.card-title { font-size: 1.2rem; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; color: var(--color-green); }
+
+/* Componente Sensor */
+.sensor-item { background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; text-align: center; }
+.sensor-label { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.sensor-value { font-size: 1.6rem; font-weight: bold; margin-top: 8px; color: white; }
+
+/* Botones y Listas */
+.list-actuadores { list-style: none; display: flex; flex-direction: column; gap: 15px; }
+.list-actuadores li { display: flex; justify-content: space-between; padding-bottom: 10px; border-bottom: 1px dashed var(--border-color); }
+.list-actuadores span:last-child { font-weight: bold; color: var(--color-orange); }
+
+.btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 12px; color: white; transition: 0.2s; }
+.btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn-green { background: var(--color-green); }
+.btn-blue { background: var(--color-blue); }
+.btn-red { background: var(--color-red); }
+.select-input { width: 100%; padding: 12px; background: var(--bg-dark); color: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 12px; }
+
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
