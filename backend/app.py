@@ -85,36 +85,70 @@ def get_historico_analizador():
         return jsonify(list(cursor)), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/historico/arm64', methods=['GET'])
+def get_arm64_vivo():
+    try:
+        cursor = db["arm64_results"].find({"source": "live_engine"}, {"id": 0}).sort("fecha_y_hora", -1).limit(1)
+        ultimo = list(cursor)
+        if not ultimo:
+            return jsonify(None), 200
+        return jsonify(ultimo[0]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/analizar", methods=["POST"])
 def analizar_datos_invernadero():
     try:
         payload = request.get_json()
-        if not payload or "columna" not in payload:
-            return jsonify({"error": "Petición inválida. Se requiere especificar el parámetro 'columna'."}), 400
-            
-        columna = str(payload["columna"]).strip()
+        if not payload:
+            return jsonify({"error": "Petición inválida. Cuerpo JSON requerido."}), 400
+
+        columna = str(payload.get("columna", "")).strip()
+        linea_inicial = payload.get("linea_inicial")
+        linea_final = payload.get("linea_final")
+
         if not columna.isdigit():
             return jsonify({"error": "El identificador de columna debe ser un valor entero numérico válido."}), 400
 
-        estado_csv = crear_lecturas_csv(db)
+        try:
+            linea_inicial = int(linea_inicial)
+            linea_final = int(linea_final)
+        except (TypeError, ValueError):
+            return jsonify({"error": "linea_inicial y linea_final deben ser valores enteros."}), 400
+
+        if linea_inicial < 1:
+            return jsonify({"error": "linea_inicial debe ser mayor o igual a 1."}), 400
+
+        if linea_final < linea_inicial:
+            return jsonify({"error": "linea_final debe ser mayor o igual a linea_inicial."}), 400
+
+        estado_csv = crear_lecturas_csv(db, n=linea_final)
         if "error" in estado_csv:
             return jsonify(estado_csv), 400
 
+        if linea_final > estado_csv["total"]:
+            return jsonify({
+                "error": f"linea_final ({linea_final}) excede el total de registros disponibles ({estado_csv['total']})."
+            }), 400
+
         config_rutinas = [
-            {"id": "media", "binario": "modulo_1_media", "salida": "resultado_media.txt"},
-            {"id": "varianza", "binario": "modulo_2_varianza", "salida": "resultado_varianza.txt"},
-            {"id": "anomalias", "binario": "modulo_3_anomalias", "salida": "resultado_anomalias.txt"},
-            {"id": "prediccion", "binario": "modulo_4_prediccion", "salida": "resultado_prediccion.txt"},
-            {"id": "tendencia", "binario": "modulo_5_tendencia", "salida": "resultado_tendencia.txt"}
+            {"id": "estabilidad", "binario": "modulo_1_estabilidad", "salida": "resultado_estabilidad.txt"},
+            {"id": "rmse", "binario": "modulo_2_rmse", "salida": "resultado_rmse.txt"},
+            {"id": "variacion", "binario": "modulo_3_variacion", "salida": "resultado_variacion.txt"},
+            {"id": "bloques", "binario": "modulo_4_bloques", "salida": "resultado_bloques.txt"},
+            {"id": "error_integral", "binario": "modulo_5_error_integral", "salida": "resultado_error_integral.txt"}
         ]
 
         documento_maestro = {
             "fecha_y_hora": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "tipo_de_dato": "procesamiento_estadistico_arm64",
             "origen": "Subprocess_Engine_AArch64",
+            "source": "historical_analyzer",
             "columna_analizada": int(columna),
-            "total_registros": estado_csv["total"],
+            "linea_inicial": linea_inicial,
+            "linea_final": linea_final,
+            "total_registros": linea_final - linea_inicial + 1,
             "resultados": {}
         }
 
@@ -137,7 +171,7 @@ def analizar_datos_invernadero():
             else:
                 try:
                     ejecucion = subprocess.run(
-                        [ruta_binario, columna],
+                        [ruta_binario, "lecturas.csv", str(linea_inicial), str(linea_final), columna],
                         cwd=cwd_data,
                         capture_output=True,
                         text=True,
