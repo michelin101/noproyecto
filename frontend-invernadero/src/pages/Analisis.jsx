@@ -13,6 +13,8 @@ const VARIABLES_COLUMNAS = {
 
 const Analisis = () => {
     const [variableSeleccionada, setVariableSeleccionada] = useState("");
+    const [lineaInicial, setLineaInicial] = useState("");
+    const [lineaFinal, setLineaFinal] = useState("");
     const [resultados, setResultados] = useState(null);
     const [cargando, setCargando] = useState(false);
     const [errorGeneral, setErrorGeneral] = useState(null);
@@ -20,6 +22,24 @@ const Analisis = () => {
     const ejecutarAnalisis = async () => {
         if (!variableSeleccionada) {
             setErrorGeneral("Por favor, selecciona una variable a analizar.");
+            return;
+        }
+
+        const inicio = parseInt(lineaInicial, 10);
+        const final = parseInt(lineaFinal, 10);
+
+        if (!lineaInicial || !lineaFinal || isNaN(inicio) || isNaN(final)) {
+            setErrorGeneral("Indique linea inicial y linea final, ambas numericas");
+            return;
+        }
+
+        if (inicio < 1) {
+            setErrorGeneral("La linea inicial debe ser mayor o igual a 1");
+            return;
+        }
+
+        if (final < inicio) {
+            setErrorGeneral("La linea final debe ser mayor o igual a la linea inicial");
             return;
         }
 
@@ -35,7 +55,11 @@ const Analisis = () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ columna: numeroColumna }),
+                body: JSON.stringify({
+                    columna: numeroColumna,
+                    linea_inicial: inicio,
+                    linea_final: final,
+                }),
             });
 
             const data = await response.json();
@@ -80,9 +104,9 @@ const Analisis = () => {
                 <div style={styles.moduloHeader}>
                     <h3 style={styles.moduloTitulo}>{nombreModulo}</h3>
                     {esExitoso ? (
-                        <span style={styles.badgeExitoso}>✓ Exitoso</span>
+                        <span style={styles.badgeExitoso}> Exitoso</span>
                     ) : (
-                        <span style={styles.badgeFallido}>✕ Fallido</span>
+                        <span style={styles.badgeFallido}>s Fallido</span>
                     )}
                 </div>
 
@@ -112,7 +136,7 @@ const Analisis = () => {
         <div style={styles.mainContainer}>
             <header style={styles.header}>
                 <h1 style={styles.tituloPrincipal}>Análisis Estadístico Nátivo</h1>
-                <p style={styles.subtitulo}>Proyecto SIEPA - Procesamiento avanzado ARM64</p>
+                <p style={styles.subtitulo}>Proyecto IoT - Procesamiento avanzado ARM64</p>
             </header>
 
             <section style={styles.cardControles}>
@@ -131,6 +155,32 @@ const Analisis = () => {
                                 <option key={nombre} value={nombre}>{nombre}</option>
                             ))}
                         </select>
+                    </div>
+
+                    <div style={styles.inputGroup}>
+                        <label htmlFor="lineaInicial" style={styles.label}>Línea Inicial</label>
+                        <input
+                            id="lineaInicial"
+                            type="number"
+                            min="1"
+                            value={lineaInicial}
+                            onChange={(e) => setLineaInicial(e.target.value)}
+                            style={styles.select}
+                            placeholder="1"
+                        />
+                    </div>
+
+                    <div style={styles.inputGroup}>
+                        <label htmlFor="lineaFinal" style={styles.label}>Línea Final</label>
+                        <input
+                            id="lineaFinal"
+                            type="number"
+                            min="1"
+                            value={lineaFinal}
+                            onChange={(e) => setLineaFinal(e.target.value)}
+                            style={styles.select}
+                            placeholder="30"
+                        />
                     </div>
 
                     <button
@@ -156,6 +206,7 @@ const Analisis = () => {
                         <h2 style={styles.seccionTitulo}>Resumen del Análisis</h2>
                         <div style={styles.gridResumen}>
                             <p><span style={styles.resumenLabel}>Variable:</span> {variableSeleccionada} (Columna {resultados.columna_analizada})</p>
+                            <p><span style={styles.resumenLabel}>Rango:</span> Línea {resultados.linea_inicial} a {resultados.linea_final}</p>
                             <p><span style={styles.resumenLabel}>Registros:</span> {resultados.total_registros}</p>
                             <p><span style={styles.resumenLabel}>Fecha:</span> {resultados.fecha_y_hora}</p>
                             <p><span style={styles.resumenLabel}>Origen:</span> {resultados.origen}</p>
@@ -213,7 +264,7 @@ const styles = {
     },
     gridControles: {
         display: 'grid',
-        gridTemplateColumns: '3fr 1fr',
+        gridTemplateColumns: '2fr 1fr 1fr 1.2fr',
         gap: '20px',
         alignItems: 'end'
     },

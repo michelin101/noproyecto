@@ -38,6 +38,22 @@ export default function Dashboard({ datos }) {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const fetchMotorArm64 = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/historico/arm64`);
+        const data = await response.json();
+        setMotorArm64(data);
+      } catch (error) {
+        console.error("Error al obtener datos del motor ARM64: ", error);
+      }
+    };
+
+    fetchMotorArm64();
+    const intervalo = setInterval(fetchMotorArm64, 5000);
+    return () => clearInterval(intervalo);
+  }, []);
+
   const renderGrafica = (titulo, dataArray, color) => {
     const chartData = {
       labels: historial.labels,
@@ -93,41 +109,25 @@ export default function Dashboard({ datos }) {
       <div className="card" style={{ flex: '1 1 300px' }}>
         <h2 className="card-title">Motor ARM64 — Decisión en Vivo</h2>
 
-        {!motorArm64 ? (
-          <div style={{
-            padding: '20px',
-            textAlign: 'center',
-            color: 'var(--text-muted)',
-            border: '1px dashed #cbd5e1',
-            borderRadius: '8px',
-            fontSize: '13px'
-          }}>
-            Pendiente de integración con el motor ARM64 en vivo.
-            <br />
-            Esta sección se llenará automáticamente cuando el backend
-            reciba resultados del módulo de decisión.
-          </div>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {motorArm64?.timestamp ? new Date(motorArm64.timestamp).toLocaleString() : 'N/A'}
+        </p>
+
+        <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Decisión</h3>
+        <p>{motorArm64?.decision || 'N/A'}</p>
+
+        <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Resultado / Indicadores</h3>
+        <pre style={{ fontSize: '12px', background: '#f8fafc', padding: '8px', borderRadius: '6px', overflowX: 'auto' }}>
+          {motorArm64?.result ? JSON.stringify(motorArm64.result, null, 2) : 'N/A'}
+        </pre>
+
+        <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Errores estructurados</h3>
+        {motorArm64?.status === 'ERROR' ? (
+          <p style={{ color: 'var(--color-red)' }}>
+            STATUS=ERROR / DETAIL={motorArm64.error_detail || 'N/A'}
+          </p>
         ) : (
-          <>
-            <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Decisión</h3>
-            <p>{motorArm64.decision}</p>
-
-            <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Indicadores</h3>
-            <ul className="list-actuadores">
-              <li><span>Promedio:</span> <span>{motorArm64.indicadores?.promedio}</span></li>
-              <li><span>Tendencia acumulada:</span> <span>{motorArm64.indicadores?.tendencia}</span></li>
-              <li><span>Amplitud:</span> <span>{motorArm64.indicadores?.amplitud}</span></li>
-            </ul>
-
-            <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Errores estructurados</h3>
-            {motorArm64.status === 'ERROR' ? (
-              <p style={{ color: 'var(--color-red)' }}>
-                ERROR={motorArm64.error} / DETAIL={motorArm64.detail}
-              </p>
-            ) : (
-              <p style={{ color: 'var(--color-green)' }}>Sin errores</p>
-            )}
-          </>
+          <p style={{ color: 'var(--color-green)' }}>N/A</p>
         )}
       </div>
 
