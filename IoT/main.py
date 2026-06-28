@@ -9,10 +9,12 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import RPi.GPIO as GPIO
 
+
 from globals import shared
 from sensors import Sensors
 from actuadores import Actuadores
 from display import Display
+from motor_bridge import MotorARM64
 
 PREFIX = "grupo19/"
 BROKER = "broker.emqx.io"
@@ -24,12 +26,9 @@ TOPICS_PUBLISH = {
     "suelo1":        PREFIX + "invernadero/sensores/humedad_suelo_area1",
     "suelo2":        PREFIX + "invernadero/sensores/humedad_suelo_area2",
     "luz":           PREFIX + "invernadero/sensores/luz",
-    "gas":           PREFIX + "invernadero/sensores/gas",
     "gas_ppm":       PREFIX + "invernadero/sensores/gas_ppm",
     "global_status": PREFIX + "invernadero/estado/global",
     "riego":         PREFIX + "invernadero/actuadores/riego",
-    "riego_area1":   PREFIX + "invernadero/actuadores/riego_area1",
-    "riego_area2":   PREFIX + "invernadero/actuadores/riego_area2",
     "ventilador":    PREFIX + "invernadero/actuadores/ventilador",
     "luces":         PREFIX + "invernadero/actuadores/luces",
     "alarma":        PREFIX + "invernadero/actuadores/alarma"
@@ -44,7 +43,7 @@ TOPICS_SUBSCRIBE = [
     PREFIX + "invernadero/actuadores/alarma/control"
 ]
 
-class SIEPA:
+class IOT:
     def __init__(self):
         self.running = True
         
@@ -72,6 +71,7 @@ class SIEPA:
         self.Sensors = Sensors()
         self.Display = Display()
         self.Actuadores = Actuadores()
+        self.Motor = MotorARM64("./src/motor")  
         
         self._init_mongo()
         self._init_mqtt()
@@ -158,13 +158,9 @@ class SIEPA:
                     self.client.publish(TOPICS_PUBLISH["suelo1"], f"{shared.suelo_area1_pct:.1f}")
                     self.client.publish(TOPICS_PUBLISH["suelo2"], f"{shared.suelo_area2_pct:.1f}")
                     self.client.publish(TOPICS_PUBLISH["luz"], f"{shared.luz_lux:.1f}")
-                    self.client.publish(TOPICS_PUBLISH["gas"], "DETECTADO" if shared.gas_detectado else "LIMPIO")
                     self.client.publish(TOPICS_PUBLISH["gas_ppm"], f"{shared.gas_ppm:.1f}")
-                    self.client.publish(TOPICS_PUBLISH["global_status"], shared.estado_global)
-                    
+                    self.client.publish(TOPICS_PUBLISH["global_status"], shared.estado_global)          
                     self.client.publish(TOPICS_PUBLISH["riego"], shared.estado_riego)
-                    self.client.publish(TOPICS_PUBLISH["riego_area1"], "ON" if shared.estado_riego == "RIEGO_AREA_1" else "OFF")
-                    self.client.publish(TOPICS_PUBLISH["riego_area2"], "ON" if shared.estado_riego == "RIEGO_AREA_2" else "OFF")
                     self.client.publish(TOPICS_PUBLISH["ventilador"], shared.estado_ventilacion)
                     self.client.publish(TOPICS_PUBLISH["luces"], "ON" if shared.luces_encendidas else "OFF")
                     self.client.publish(TOPICS_PUBLISH["alarma"], "ON" if shared.buzzer_encendido else "OFF")
@@ -247,13 +243,36 @@ class SIEPA:
             print("Sistema de Invernadero Iniciado...")
             while self.running:
                 self.Sensors.read_sensors()
+
+
+                decision = self.Motor.evaluar(
+                    shared.temperature, shared.humidity,
+                    shared.suelo_area1_pct, shared.suelo_area2_pct,
+                    shared.luz_lux, shared.gas_ppm,
+                    shared.modo_operacion
+                )
+
+                if decision:
+                    shared.arm64_decision = decision
+                    
+                    # Registrar en MongoDB 
+                    if shared.modo_operacion == "AUTOMATICO":
+                        self.insertar_mongo("arm64_results", {
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "source": "live_engine",
+                            "input": f"{shared.temperature},{shared.humidity},{shared.suelo_area1_pct},{shared.suelo_area2_pct},{shared.luz_lux},{shared.gas_ppm}",
+                            "decision": decision.get("ACTION", "NO_ACTION"),
+                            "result": decision
+                        })
+
                 self.Actuadores.update()
                 self.Display.update()
-                
+
                 time.sleep(self.intervals["principal"])
                 
         except KeyboardInterrupt:
             print("Deteniendo sistema de forma segura...")
+            self.Motor.cleanup()
             self.running = False
             self.Sensors.cleanup()      
             self.Actuadores.cleanup()   
@@ -265,5 +284,5 @@ class SIEPA:
                 self.mongo_client.close()
 
 if __name__ == "__main__":
-    app = SIEPA()
+    app = IOT()
     app.main_loop()

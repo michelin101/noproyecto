@@ -7,23 +7,17 @@ import adafruit_dht
 import RPi.GPIO as GPIO
 from globals import shared
 
+
+# En esta versión de sensors quitamos todos los umbrales y calculos que haciamos para dejarle el trabajo al motor arm64. 
+# Actualizamos los valores de los sensores y dejamos que el motor ARM64 decida que hacer con ellos.
+
 PIN_DHT = board.D17
 PIN_BTN_MODO = 5
 PIN_BTN_RIEGO = 6
 PIN_BTN_LUCES = 13
 PIN_BTN_SILENCIAR = 19
 
-TEMP_MAXIMA = 30.0
-HUM_AMBIENTE_MIN = 30.0
-HUM_AMBIENTE_MAX = 80.0
-HUM_SUELO_SECO = 30.0
-HUM_SUELO_SATURADO = 60.0
-LUZ_MINIMA_LUX = 150.0
-
-GAS_UMBRAL_ADVERTENCIA_PPM = 800.0  
-GAS_UMBRAL_EMERGENCIA_PPM = 1500.0   
 DEBOUNCE_TIME = 0.3
-
 VCC = 3.3
 R_FIJA = 10000.0
 
@@ -106,9 +100,6 @@ class Sensors:
             hum = self.dht_device.humidity
             if temp is not None: shared.temperature = temp
             if hum is not None: shared.humidity = hum
-            if temp is not None and temp > TEMP_MAXIMA:
-                if shared.estado_gas != "GAS_EMERGENCIA":
-                    shared.mensaje_error_local = "ALERTA: TEMP ALTA"
         except RuntimeError:
             pass 
 
@@ -133,48 +124,21 @@ class Sensors:
             
         shared.luz_lux = lux  
 
-        if shared.suelo_area1_pct < HUM_SUELO_SECO: shared.estado_suelo1 = "SECO"
-        elif shared.suelo_area1_pct > HUM_SUELO_SATURADO: shared.estado_suelo1 = "SATURADO"
-        else: shared.estado_suelo1 = "NORMAL"
-            
-        if shared.suelo_area2_pct < HUM_SUELO_SECO: shared.estado_suelo2 = "SECO"
-        elif shared.suelo_area2_pct > HUM_SUELO_SATURADO: shared.estado_suelo2 = "SATURADO"
-        else: shared.estado_suelo2 = "NORMAL"
-            
-        shared.estado_luz = "BAJA" if shared.luz_lux < LUZ_MINIMA_LUX else "SUFICIENTE"
-
     def _leer_gas(self):
         voltaje = self.canal_gas.voltage
         shared.gas_ppm = max(0, (voltaje / 3.3) * 10000.0)
-        
-        if shared.gas_ppm > GAS_UMBRAL_EMERGENCIA_PPM:
-            shared.estado_gas = "GAS_EMERGENCIA"
-            shared.gas_detectado = True
-        elif shared.gas_ppm > GAS_UMBRAL_ADVERTENCIA_PPM:
-            shared.estado_gas = "GAS_ADVERTENCIA"
-            shared.gas_detectado = False
-            shared.buzzer_silenciado_manual = False
-        else:
-            shared.estado_gas = "GAS_NORMAL"
-            shared.gas_detectado = False
-            shared.buzzer_silenciado_manual = False
 
     def _evaluar_estado_global(self):
-        if shared.estado_gas == "GAS_EMERGENCIA":
-            shared.estado_global = "EMERGENCIA"
-        elif shared.modo_operacion == "MANUAL":
+        if shared.modo_operacion == "MANUAL":
             shared.estado_global = "MODO_MANUAL"
-        elif shared.bomba_encendida:
-            shared.estado_global = "RIEGO_ACTIVO"
-        elif (shared.temperature > TEMP_MAXIMA or 
-              shared.humidity < HUM_AMBIENTE_MIN or
-              shared.humidity > HUM_AMBIENTE_MAX or
-              shared.estado_luz == "BAJA" or 
-              shared.estado_suelo1 == "SECO" or 
-              shared.estado_suelo2 == "SECO" or
-              shared.estado_suelo1 == "SATURADO" or
-              shared.estado_suelo2 == "SATURADO" or
-              shared.estado_gas == "GAS_ADVERTENCIA"):
+            return
+
+        riesgo = shared.arm64_decision.get("RISK", "LOW")
+        accion = shared.arm64_decision.get("ACTION", "NO_ACTION")
+
+        if riesgo == "CRITICAL" or accion == "ALARM_ON":
+            shared.estado_global = "EMERGENCIA"
+        elif riesgo in ["HIGH", "MEDIUM"] or shared.bomba_encendida:
             shared.estado_global = "ADVERTENCIA"
         else:
             shared.estado_global = "NORMAL"

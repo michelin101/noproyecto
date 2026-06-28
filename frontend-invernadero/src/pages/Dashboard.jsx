@@ -14,7 +14,12 @@ export default function Dashboard({ datos }) {
   useEffect(() => {
     const fetchHistorico = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/historico/sensores`);
+        const response = await fetch(`${API_URL}/api/historico/sensores`, {
+          method: 'GET',
+          headers: {
+          'ngrok-skip-browser-warning': 'true' 
+        }
+        });
         const data = await response.json();
 
         if (Array.isArray(data)) {
@@ -41,7 +46,12 @@ export default function Dashboard({ datos }) {
   useEffect(() => {
     const fetchMotorArm64 = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/historico/arm64`);
+        const response = await fetch(`${API_URL}/api/historico/arm64`, {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true' 
+          }
+        });
         const data = await response.json();
         setMotorArm64(data);
       } catch (error) {
@@ -117,7 +127,7 @@ export default function Dashboard({ datos }) {
         <p>{motorArm64?.decision || 'N/A'}</p>
 
         <h3 style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '16px' }}>Resultado / Indicadores</h3>
-        <pre style={{ fontSize: '12px', background: '#f8fafc', padding: '8px', borderRadius: '6px', overflowX: 'auto' }}>
+        <pre style={{ fontSize: '12px', background: '#f8fafc', padding: '8px', borderRadius: '6px', overflowX: 'auto', color: 'black' }}>
           {motorArm64?.result ? JSON.stringify(motorArm64.result, null, 2) : 'N/A'}
         </pre>
 

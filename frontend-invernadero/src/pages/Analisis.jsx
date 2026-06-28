@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { API_URL } from '../config';
 
-
 const VARIABLES_COLUMNAS = {
     "Temperatura": "2",
     "Humedad Aire": "3",

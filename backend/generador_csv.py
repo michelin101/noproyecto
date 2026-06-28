@@ -1,7 +1,6 @@
-# generador_csv.py
 import os
 
-def crear_lecturas_csv(db):
+def crear_lecturas_csv(db, n):
     cursor = db["sensor_readings"].find().sort("fecha_y_hora", -1).limit(n)
     lecturas = list(cursor)
     

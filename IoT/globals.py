@@ -39,5 +39,8 @@ class GlobalState:
         self.comando_luces_remoto = None
         self.comando_ventilador_remoto = None
         self.comando_alarma_remoto = None
+        self.arm64_decision = {}
+
+        
 
 shared = GlobalState()
