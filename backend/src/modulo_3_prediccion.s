@@ -11,7 +11,7 @@
 
 .data 
 output_file: 
-    .asciz "resultado_prediccion.txt"
+    .asciz "resultado_prediccion_3.txt"         //
 
 calc:
     .ascii "CALC=PREDICTION\n"                  // Nombre del calculo
@@ -53,6 +53,19 @@ status:
     .ascii "STATUS=OK\n"
     len_status = . - status
 
+// Para el archivo de salida pero de lo errores
+err_msg_col:
+    .ascii "STATUS=ERROR\nERROR=INVALID_COLUMN\nDETAIL=COLUMN_OUT_OF_RANGE\n"
+    len_err_msg_col = . - err_msg_col
+
+err_msg_rango:
+    .ascii "STATUS=ERROR\nERROR=INVALID_RANGE\nDETAIL=END_LINE_EXCEEDS_FILE_LENGTH\n"
+    len_err_msg_rango = . - err_msg_rango
+
+err_msg_datos:
+    .ascii "STATUS=ERROR\nERROR=INSUFFICIENT_DATA\nDETAIL=NO_VALID_DATA_IN_RANGE\n"
+    len_err_msg_datos = . - err_msg_datos
+
 .bss
 out_buffer: .skip 512							// Buffer Principal, texto que se escribira en el archivo
 num_buffer: .skip 32							// Buffer temporal para la conversion itoa
@@ -78,7 +91,7 @@ _start:
     bl atoi_argv                                // Funcion que convierte de texto a numero
     mov x11, x10                                // x11 = x10 (numero de la columna)
     mov x18, x11                                // Guardar la columna, ya que se pierde por la funcion del utils 
-	bl utils_read_olumn_to_stack		        // Resive en x11 el numero de filas (inicio y fin) y la columa
+	bl utils_read_column_to_stack		        // Resive en x11 el numero de filas (inicio y fin) y la columa
 
     mov x13, x0									// x13 = inicio de datos en el stack (mas baja)
 	mov x14, x1									// x14 = limite de datos en el stack (mas alta)
@@ -100,7 +113,7 @@ _start:
 
     mov x4, #0                                  // x4 = 0, suma(Y_i)
     mov x5, #0                                  // x5 = 0, suma(X_i)
-    mov x12, #0                                 // x12 = 0, no es peso, lo pense como en mi modulo de la fase anterior, es el indice
+    mov x12, #0                                 // x12 = 0, es el indice
     mov x7, x14                                 // puntero actual al inicio x14
 
 ciclo_suma:
@@ -142,7 +155,7 @@ fin_ciclo:
     mov x20, x1                                 // Guardamos Y_PRED en x1 para que no se pierda
 
 // =============================================================
-// Armar texto de salida en out_buffer (resultado_prediccion.txt)
+// Armar texto de salida en out_buffer (resultado_prediccion_3.txt)
 // =============================================================
 
     mov sp, x16                                 // Restaurar el stack pointer
@@ -275,6 +288,64 @@ slope_positivo:
 	mov x0, #0									// Codigo 0 = exito
 	mov x8, #93									// Syscall exit
 	svc #0
+
+// =============================================================
+// Errores
+// =============================================================
+
+error_salida:
+	ldr x15, =out_buffer						// x15 = cursor de escritura
+
+	ldr x0, =calc								// x0 = direccion donde se guarda "CALC=WEIGHTED_MEAN"
+    mov x1, len_calc							// x1 = longitud
+    bl copiar_string
+    cmp x17, #1									// x17 == 1, salta al error_es_col, ya que el uno indica que es error de columna
+    beq error_es_col
+    cmp x17, #2									// x17 == 2, salta a error_es_rango, porque 2 es error del rango
+    beq error_es_rango
+    b error_fin									// Si todo bien se va a error fin, a terminar la estitura y salida del archivo
+
+error_es_col:
+    ldr x0, =err_msg_col
+    mov x1, len_err_msg_col
+    bl copiar_string
+    b error_fin
+
+error_es_rango:
+    ldr x0, =err_msg_rango
+    mov x1, len_err_msg_rango
+    bl copiar_string
+    b error_fin
+
+error_rango_excedido:
+	ldr x15, =out_buffer
+	ldr x0, =calc
+	mov x1, len_calc
+	bl copiar_string
+	ldr x0, =err_msg_rango
+	mov x1, len_err_msg_rango
+	bl copiar_string
+	b error_fin
+
+error_datos:
+    ldr x15, =out_buffer
+
+    ldr x0, =calc
+    mov x1, len_calc
+    bl copiar_string
+    ldr x0, =err_msg_datos
+    mov x1, len_err_msg_datos
+    bl copiar_string
+
+error_fin:										// salida
+    ldr x0, =out_buffer
+    sub x1, x15, x0
+    ldr x2, =output_file
+    bl utils_write_result
+
+    mov x0, #1
+    mov x8, #93
+    svc #0
 
 // =============================================================
 // Subrutinas (copiado de mi otro modulo del proyecto 1)
