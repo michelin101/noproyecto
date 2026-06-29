@@ -1,4 +1,7 @@
-// Modulo 3: Deteccion de Anomalias (Z-score)
+/* ===========================================================================
+   Módulo 3: Detección de Anomalías (Z-Score)
+   Optimizado con flujo lineal y concatenación abstracta
+   =========================================================================== */
 
 .global _start
 
@@ -8,10 +11,7 @@
 
     // Etiquetas de reporte
     etq_module:   .asciz "MODULE=ANOMALY_DETECTION\n"
-    etq_column:     .asciz "COLUMN="                  // columna analizada
-    etq_win_start:  .asciz "WINDOW_START="            // linea inicial del rango
-    etq_win_end:    .asciz "WINDOW_END="              // linea final del rango
-    etq_count:      .asciz "COUNT="                   // cantidad de datos procesados
+    etq_total:    .asciz "TOTAL_VALUES=30\n"
     etq_mean:     .asciz "MEAN="
     etq_std:      .asciz "STD_DEV="
     etq_anom:     .asciz "ANOMALIES="
@@ -19,10 +19,6 @@
     etq_normal:   .asciz "NORMAL\n"
     etq_medium:   .asciz "MEDIUM\n"
     etq_high:     .asciz "HIGH\n"
-
-    // etiquetas de error 
-    etq_err_columna: .asciz "MODULE=ANOMALY_DETECTION\nSTATUS=ERROR\nERROR=INVALID_COLUMN\n"
-    etq_err_rango:   .asciz "MODULE=ANOMALY_DETECTION\nSTATUS=ERROR\nERROR=INVALID_RANGE\n"
 
 .section .bss
 .align 4
@@ -36,38 +32,27 @@ _start:
     // 1. OBTENER COLUMNA DESDE ARGV[1]
     // ========================================================================
     ldr x0, [sp]                    // Cargar argc
-    cmp x0, #5                      // se necesitan 4 argumentos + el nombre del programa
-    blt salir_con_error             // Abortar si no hay suficientes argumentos
+    cmp x0, #2
+    blt salir_con_error             // Abortar si no hay argumentos
 
-    ldr x2, [sp, #16]                // puntero a argv[1], archivo de entrada
-    mov x21, x2                      // se copia el puntero del archivo en x21
+    ldr x0, [sp, #16]               // Cargar argv[1]
+    mov x11, #0                     // x11 = numero de columna
+    mov x1, #10
+parse_columna:
+    ldrb w2, [x0], #1
+    cbz w2, columna_obtenida
+    sub w2, w2, '0'
+    mul x11, x11, x1
+    add x11, x11, x2
+    b parse_columna
 
-    ldr x0, [sp, #24]                 // puntero a argv[2], linea inicial
-    bl atoi_argv                      // convertir a entero
-    mov x24, x10                      // x24 = linea inicial del rango que se procesa
-
-    ldr x0, [sp, #32]                 // puntero a argv[3], linea final
-    bl atoi_argv                      // convertir a entero
-    mov x25, x10                      // x25 = linea final del rango que se procesa
-
-    ldr x0, [sp, #40]                 // puntero a argv[4], columna que se analiza
-    bl atoi_argv                      // convertir el string a entero
-    mov x11, x10                      // x11 = numero de columna
-
+columna_obtenida:
     bl utils_read_column_to_stack
-
-    cmp x4, #1                        // se verifica si la columna fue invalida
-    beq error_columna
-    cmp x4, #2                        // se verifica si el rango fue invalido
-    beq error_rango
-
+    
     mov x19, x0                     // x19 = Inicio de datos
     mov x20, x1                     // x20 = Fin de datos
-    mov x21, x2                     // x21 = cantidad de datos
+    mov x21, x2                     // x21 = Cantidad (30)
     mov x22, x3                     // x22 = SP original para restaurar
-
-    mov x26, x24                    // x26 = linea inicial
-    mov x28, x25                    // x28 = linea final
 
     // ========================================================================
     // 2. CÁLCULO DE MEDIA ARITMÉTICA (Resultado en x23)
@@ -150,26 +135,8 @@ fin_anomalias:
 
     ldr x0, =etq_module
     bl append_string
-
-    ldr x0, =etq_column
+    ldr x0, =etq_total
     bl append_string
-    mov x0, x11
-    bl append_number
-
-    ldr x0, =etq_win_start
-    bl append_string
-    mov x0, x26                     
-    bl append_number
-
-    ldr x0, =etq_win_end
-    bl append_string
-    mov x0, x28                     
-    bl append_number
-
-    ldr x0, =etq_count
-    bl append_string
-    mov x0, x21
-    bl append_number
     
     ldr x0, =etq_mean
     bl append_string
@@ -208,7 +175,6 @@ write_riesgo:
     // ========================================================================
     // 6. ESCRITURA FÍSICA AL ARCHIVO .TXT
     // ========================================================================
-escribir_archivo:
     ldr x0, =buffer_salida
     mov x1, #0
 len_loop:                           // Calcular tamaño dinámico del texto
@@ -234,27 +200,11 @@ salir_con_error:
     mov x8, #93
     svc #0
 
-// MANEJO DE ERRORES DE VALIDACIO
-// Construye un reporte de eror y lo escribe en el archivo
-error_columna:
-    ldr x1, =buffer_salida           // direccion del inicio del buffer de salida
-    strb wzr, [x1]                   // se vacia el buffer
-    ldr x0, =etq_err_columna         // mensaje de error por columna invalida
-    bl append_string                 // se agrega al buffer
-    b escribir_archivo               // saltar directo a escribir el archivo
-
-error_rango:
-    ldr x1, =buffer_salida           // direccion del inicio del buffer de salida
-    strb wzr, [x1]                   // se vacia el buffer
-    ldr x0, =etq_err_rango           // mensaje de error por rango invalido
-    bl append_string                 // se agrega al buffer
-    b escribir_archivo               // saltar directo a escribir el archivo
-
 // ============================================================================
 // SUBRUTINAS ABSTRAÍDAS PARA MANEJO DE STRINGS
 // ============================================================================
 
-// Busca el final de buffer_salida y concatena la cqdena apuntada por x0
+// Busca el final de buffer_salida y concatena la cadena apuntada por x0
 append_string:
     ldr x1, =buffer_salida
 find_end:

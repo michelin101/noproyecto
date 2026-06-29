@@ -1,7 +1,6 @@
 import time 
 import RPi.GPIO as GPIO 
 from globals import shared 
-#Ahora los actuadores se activan o desactivan segun la decision del motor ARM64 y los botones fisicos (o comando remoto a partir del front).
 
 PIN_BOMBA = 25
 PIN_VENTILADOR = 23
@@ -51,28 +50,13 @@ class Actuadores:
                 shared.buzzer_silenciado_manual = True
             shared.comando_alarma_remoto = None
 
-        if shared.modo_operacion == "AUTOMATICO":
-            accion_arm64 = shared.arm64_decision.get("ACTION", "")
-            target_arm64 = shared.arm64_decision.get("TARGET", "")
-            
-            if accion_arm64 == "ALARM_ON":
-                shared.buzzer_encendido = not shared.buzzer_silenciado_manual
-                shared.mensaje_error_local = "PELIGRO: CRÍTICO ARM64"
-                
-                if target_arm64 == "GAS":
-                    shared.estado_ventilacion = "VENTILACION_EMERGENCIA"
-                    shared.ventilador_encendido = True
-            else:
-                shared.buzzer_encendido = False
+        if shared.estado_gas == "GAS_EMERGENCIA":
+            shared.estado_ventilacion = "VENTILACION_EMERGENCIA"
+            shared.ventilador_encendido = True
+            shared.buzzer_encendido = not shared.buzzer_silenciado_manual
+            shared.mensaje_error_local = "PELIGRO: GAS DETECTADO"
         else:
-            if shared.estado_gas == "GAS_EMERGENCIA":
-                shared.estado_ventilacion = "VENTILACION_EMERGENCIA"
-                shared.ventilador_encendido = True
-                shared.buzzer_encendido = not shared.buzzer_silenciado_manual
-                shared.mensaje_error_local = "PELIGRO: GAS DETECTADO"
-            else:
-                shared.buzzer_encendido = False
-
+            shared.buzzer_encendido = False
 
     def _control_riego(self): 
         tiempo_actual = time.time()
@@ -105,17 +89,14 @@ class Actuadores:
             shared.comando_riego_remoto = None 
             return 
 
-        #Ahora las desiciones automáticas basadas en la decisión de ARM64 (solo si estamos en modo automatico y no en cooldown)
         if shared.modo_operacion == "AUTOMATICO" and not en_cooldown:
-            
-            accion_arm64 = shared.arm64_decision.get("ACTION", "")
-            
-            if accion_arm64 == "RIEGO_1_ON" and not shared.bomba_encendida:
+            if shared.estado_suelo1 == "SECO" and not shared.bomba_encendida:
                 self._encender_bomba("RIEGO_AREA_1")
-            elif accion_arm64 == "RIEGO_2_ON" and not shared.bomba_encendida:
+            elif shared.estado_suelo2 == "SECO" and not shared.bomba_encendida:
                 self._encender_bomba("RIEGO_AREA_2")
-            elif accion_arm64 not in ["RIEGO_1_ON", "RIEGO_2_ON"] and shared.bomba_encendida:
-                self._apagar_bomba()
+            elif shared.estado_suelo1 == "NORMAL" and shared.estado_suelo2 == "NORMAL":
+                if shared.bomba_encendida:
+                    self._apagar_bomba()
 
     def _encender_bomba(self, estado):
         shared.bomba_encendida = True
@@ -128,17 +109,12 @@ class Actuadores:
             shared.estado_riego = "RIEGO_OFF"
             self.tiempo_fin_riego = time.time()
 
-
     def _control_ventilacion(self):
-        accion_arm64 = shared.arm64_decision.get("ACTION", "")
-        target_arm64 = shared.arm64_decision.get("TARGET", "")
-        
-        
-        if accion_arm64 == "ALARM_ON" and target_arm64 == "GAS":
+        if shared.estado_gas == "GAS_EMERGENCIA":
             return
             
         if shared.modo_operacion == "AUTOMATICO":
-            if accion_arm64 == "FAN_ON":
+            if shared.temperature > 30.0:
                 shared.estado_ventilacion = "VENTILACION_ON"
                 shared.ventilador_encendido = True
             else:
@@ -157,8 +133,7 @@ class Actuadores:
 
     def _control_luces(self):
         if shared.modo_operacion == "AUTOMATICO":
-            accion_arm64 = shared.arm64_decision.get("ACTION", "")
-            shared.luces_encendidas = (accion_arm64 == "LIGHT_ON")
+            shared.luces_encendidas = (shared.estado_luz == "BAJA") 
         else:
             if shared.comando_luces_remoto is not None:
                 if shared.comando_luces_remoto == "TOGGLE":
@@ -167,22 +142,13 @@ class Actuadores:
                     shared.luces_encendidas = True
                 elif shared.comando_luces_remoto == "OFF":
                     shared.luces_encendidas = False
-                shared.comando_luces_remoto = None  
+                shared.comando_luces_remoto = None
             
-
     def _control_leds_estado(self):
-        if shared.modo_operacion == "AUTOMATICO":
-            riesgo = shared.arm64_decision.get("RISK", "")
-            accion = shared.arm64_decision.get("ACTION", "")
-            
-            self.led_verde = (riesgo == "LOW" or accion == "LED_GREEN")
-            self.led_amarillo = (riesgo == "MEDIUM" or accion in ["RIEGO_1_ON", "RIEGO_2_ON", "LIGHT_ON", "FAN_ON", "LED_YELLOW"])
-            self.led_rojo = (riesgo in ["HIGH", "CRITICAL"] or accion in ["ALARM_ON", "LED_RED"])
-        else:
-            estado = shared.estado_global
-            self.led_verde = (estado == "NORMAL") 
-            self.led_amarillo = (estado == "MODO_MANUAL" or estado == "ADVERTENCIA") 
-            self.led_rojo = (estado == "EMERGENCIA") 
+        estado = shared.estado_global
+        self.led_verde = (estado == "NORMAL") 
+        self.led_amarillo = (estado == "ADVERTENCIA" or estado == "RIEGO_ACTIVO") 
+        self.led_rojo = (estado == "EMERGENCIA") 
 
     def _aplicar_salidas_fisicas(self): 
         GPIO.output(PIN_BOMBA, GPIO.HIGH if shared.bomba_encendida else GPIO.LOW)

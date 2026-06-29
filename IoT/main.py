@@ -9,12 +9,10 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import RPi.GPIO as GPIO
 
-
 from globals import shared
 from sensors import Sensors
 from actuadores import Actuadores
 from display import Display
-from motor_bridge import MotorARM64
 
 PREFIX = "grupo19/"
 BROKER = "broker.emqx.io"
@@ -71,7 +69,6 @@ class IOT:
         self.Sensors = Sensors()
         self.Display = Display()
         self.Actuadores = Actuadores()
-        self.Motor = MotorARM64("./src/motor")  
         
         self._init_mongo()
         self._init_mqtt()
@@ -243,36 +240,13 @@ class IOT:
             print("Sistema de Invernadero Iniciado...")
             while self.running:
                 self.Sensors.read_sensors()
-
-
-                decision = self.Motor.evaluar(
-                    shared.temperature, shared.humidity,
-                    shared.suelo_area1_pct, shared.suelo_area2_pct,
-                    shared.luz_lux, shared.gas_ppm,
-                    shared.modo_operacion
-                )
-
-                if decision:
-                    shared.arm64_decision = decision
-                    
-                    # Registrar en MongoDB 
-                    if shared.modo_operacion == "AUTOMATICO":
-                        self.insertar_mongo("arm64_results", {
-                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "source": "live_engine",
-                            "input": f"{shared.temperature},{shared.humidity},{shared.suelo_area1_pct},{shared.suelo_area2_pct},{shared.luz_lux},{shared.gas_ppm}",
-                            "decision": decision.get("ACTION", "NO_ACTION"),
-                            "result": decision
-                        })
-
                 self.Actuadores.update()
                 self.Display.update()
-
+                
                 time.sleep(self.intervals["principal"])
                 
         except KeyboardInterrupt:
             print("Deteniendo sistema de forma segura...")
-            self.Motor.cleanup()
             self.running = False
             self.Sensors.cleanup()      
             self.Actuadores.cleanup()   

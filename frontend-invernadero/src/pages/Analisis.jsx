@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { API_URL } from '../config';
+
 
 const VARIABLES_COLUMNAS = {
     "Temperatura": "2",
@@ -7,13 +7,12 @@ const VARIABLES_COLUMNAS = {
     "Humedad Suelo 1": "4",
     "Humedad Suelo 2": "5",
     "Luminosidad": "6",
-    "Calidad Aire (Gas)": "7"
+    "Calidad Aire (Gas)": "7",
+
 };
 
 const Analisis = () => {
     const [variableSeleccionada, setVariableSeleccionada] = useState("");
-    const [lineaInicial, setLineaInicial] = useState("");
-    const [lineaFinal, setLineaFinal] = useState("");
     const [resultados, setResultados] = useState(null);
     const [cargando, setCargando] = useState(false);
     const [errorGeneral, setErrorGeneral] = useState(null);
@@ -24,24 +23,6 @@ const Analisis = () => {
             return;
         }
 
-        const inicio = parseInt(lineaInicial, 10);
-        const final = parseInt(lineaFinal, 10);
-
-        if (!lineaInicial || !lineaFinal || isNaN(inicio) || isNaN(final)) {
-            setErrorGeneral("Indique linea inicial y linea final, ambas numericas");
-            return;
-        }
-
-        if (inicio < 1) {
-            setErrorGeneral("La linea inicial debe ser mayor o igual a 1");
-            return;
-        }
-
-        if (final < inicio) {
-            setErrorGeneral("La linea final debe ser mayor o igual a la linea inicial");
-            return;
-        }
-
         setCargando(true);
         setErrorGeneral(null);
         setResultados(null);
@@ -49,16 +30,12 @@ const Analisis = () => {
         const numeroColumna = VARIABLES_COLUMNAS[variableSeleccionada];
 
         try {
-            const response = await fetch(`${API_URL}/api/analizar`, {
+            const response = await fetch('http://192.168.0.14:5000/api/analizar', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    columna: numeroColumna,
-                    linea_inicial: inicio,
-                    linea_final: final,
-                }),
+                body: JSON.stringify({ columna: numeroColumna }),
             });
 
             const data = await response.json();
@@ -84,7 +61,7 @@ const Analisis = () => {
         return (
             <div style={styles.metricasContainer}>
                 {Object.entries(metricas).map(([clave, valor], index) => (
-                    <div key={clave} style={{ ...styles.metricaRow, backgroundColor: index % 2 === 0 ? '#ffffff' : 'transparent' }}>
+                    <div key={clave} style={{...styles.metricaRow, backgroundColor: index % 2 === 0 ? '#ffffff' : 'transparent'}}>
                         <span style={styles.metricaClave}>{clave}:</span>
                         <span style={styles.metricaValor}>{valor}</span>
                     </div>
@@ -103,12 +80,12 @@ const Analisis = () => {
                 <div style={styles.moduloHeader}>
                     <h3 style={styles.moduloTitulo}>{nombreModulo}</h3>
                     {esExitoso ? (
-                        <span style={styles.badgeExitoso}> Exitoso</span>
+                        <span style={styles.badgeExitoso}>✓ Exitoso</span>
                     ) : (
-                        <span style={styles.badgeFallido}>s Fallido</span>
+                        <span style={styles.badgeFallido}>✕ Fallido</span>
                     )}
                 </div>
-
+                
                 {esExitoso ? (
                     <div style={styles.moduloContenido}>
                         {renderizarMetricas(datosModulo.metricas)}
@@ -134,16 +111,16 @@ const Analisis = () => {
     return (
         <div style={styles.mainContainer}>
             <header style={styles.header}>
-                <h1 style={styles.tituloPrincipal}>Análisis Estadístico Nátivo</h1>
-                <p style={styles.subtitulo}>Proyecto IoT - Procesamiento avanzado ARM64</p>
+                <h1 style={styles.tituloPrincipal}>Análisis Estadístico</h1>
+                <p style={styles.subtitulo}>Procesamiento ARM64</p>
             </header>
-
+            
             <section style={styles.cardControles}>
                 <h2 style={styles.seccionTitulo}>Controles de Análisis</h2>
                 <div style={styles.gridControles}>
                     <div style={styles.inputGroup}>
                         <label htmlFor="variableSelect" style={styles.label}>Seleccionar Variable a Procesar</label>
-                        <select
+                        <select 
                             id="variableSelect"
                             value={variableSeleccionada}
                             onChange={(e) => setVariableSeleccionada(e.target.value)}
@@ -156,36 +133,10 @@ const Analisis = () => {
                         </select>
                     </div>
 
-                    <div style={styles.inputGroup}>
-                        <label htmlFor="lineaInicial" style={styles.label}>Línea Inicial</label>
-                        <input
-                            id="lineaInicial"
-                            type="number"
-                            min="1"
-                            value={lineaInicial}
-                            onChange={(e) => setLineaInicial(e.target.value)}
-                            style={styles.select}
-                            placeholder="1"
-                        />
-                    </div>
-
-                    <div style={styles.inputGroup}>
-                        <label htmlFor="lineaFinal" style={styles.label}>Línea Final</label>
-                        <input
-                            id="lineaFinal"
-                            type="number"
-                            min="1"
-                            value={lineaFinal}
-                            onChange={(e) => setLineaFinal(e.target.value)}
-                            style={styles.select}
-                            placeholder="30"
-                        />
-                    </div>
-
-                    <button
-                        onClick={ejecutarAnalisis}
+                    <button 
+                        onClick={ejecutarAnalisis} 
                         disabled={cargando}
-                        style={{ ...styles.boton, opacity: cargando ? 0.7 : 1, cursor: cargando ? 'not-allowed' : 'pointer' }}
+                        style={{...styles.boton, opacity: cargando ? 0.7 : 1, cursor: cargando ? 'not-allowed' : 'pointer'}}
                     >
                         {cargando ? "Procesando..." : "Ejecutar Rutinas ARM64"}
                     </button>
@@ -205,7 +156,6 @@ const Analisis = () => {
                         <h2 style={styles.seccionTitulo}>Resumen del Análisis</h2>
                         <div style={styles.gridResumen}>
                             <p><span style={styles.resumenLabel}>Variable:</span> {variableSeleccionada} (Columna {resultados.columna_analizada})</p>
-                            <p><span style={styles.resumenLabel}>Rango:</span> Línea {resultados.linea_inicial} a {resultados.linea_final}</p>
                             <p><span style={styles.resumenLabel}>Registros:</span> {resultados.total_registros}</p>
                             <p><span style={styles.resumenLabel}>Fecha:</span> {resultados.fecha_y_hora}</p>
                             <p><span style={styles.resumenLabel}>Origen:</span> {resultados.origen}</p>
@@ -213,7 +163,7 @@ const Analisis = () => {
                     </div>
 
                     <div style={styles.gridModulos}>
-                        {Object.entries(resultados.resultados).map(([nombreModulo, datosModulo]) =>
+                        {Object.entries(resultados.resultados).map(([nombreModulo, datosModulo]) => 
                             renderizarModulo(nombreModulo, datosModulo)
                         )}
                     </div>
@@ -263,7 +213,7 @@ const styles = {
     },
     gridControles: {
         display: 'grid',
-        gridTemplateColumns: '2fr 1fr 1fr 1.2fr',
+        gridTemplateColumns: '3fr 1fr',
         gap: '20px',
         alignItems: 'end'
     },

@@ -1,11 +1,12 @@
+
 import os
 
-def crear_lecturas_csv(db, n):
-    cursor = db["sensor_readings"].find().sort("fecha_y_hora", -1).limit(n)
+def crear_lecturas_csv(db):
+    cursor = db["sensor_readings"].find().sort("fecha_y_hora", -1).limit(30)
     lecturas = list(cursor)
     
-    if len(lecturas) < n:
-        return {"error": f"Faltan datos. Solo hay {len(lecturas)} lecturas en la BD. Se requieren {n}."}
+    if len(lecturas) < 30:
+        return {"error": f"Faltan datos. Solo hay {len(lecturas)} lecturas en la BD. Se requieren 30."}
 
     lecturas.reverse()
 

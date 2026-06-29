@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { API_URL } from '../config';
 
 const BADGE = {
-  EMERGENCIA: { bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },
-  ADVERTENCIA: { bg: '#fffbeb', color: '#92400e', border: '#fef3c7' },
-  NORMAL: { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' },
+  EMERGENCIA:   { bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },
+  ADVERTENCIA:  { bg: '#fffbeb', color: '#92400e', border: '#fef3c7' },
+  NORMAL:       { bg: '#ecfdf5', color: '#065f46', border: '#a7f3d0' },
   RIEGO_ACTIVO: { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe' },
-  default: { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
+  default:      { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' },
 };
 
 function getBadge(texto = '') {
@@ -42,7 +41,7 @@ function Tabla({ titulo, filas, columnas, compactNumbers = false }) {
         <h3 style={styles.tableTitle}>{titulo}</h3>
         <span style={styles.recordCount}>{filas.length} registros</span>
       </div>
-
+      
       {filas.length === 0 ? (
         <div style={styles.emptyState}>
           <svg style={styles.emptyIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -56,7 +55,7 @@ function Tabla({ titulo, filas, columnas, compactNumbers = false }) {
             <thead>
               <tr style={styles.theadTr}>
                 {columnas.map(c => (
-                  <th key={c.key} style={{ ...styles.th, textAlign: c.numeric ? 'right' : 'left' }}>
+                  <th key={c.key} style={{...styles.th, textAlign: c.numeric ? 'right' : 'left'}}>
                     {c.label}
                   </th>
                 ))}
@@ -64,10 +63,10 @@ function Tabla({ titulo, filas, columnas, compactNumbers = false }) {
             </thead>
             <tbody>
               {filas.map((fila, i) => (
-                <tr key={i} style={{ ...styles.tbodyTr, backgroundColor: i % 2 === 0 ? '#ffffff' : '#f9fafb' }}>
+                <tr key={i} style={{...styles.tbodyTr, backgroundColor: i % 2 === 0 ? '#ffffff' : '#f9fafb'}}>
                   {columnas.map(c => {
                     const valorCelda = getNestedValue(fila, c.key);
-
+                    
                     let valorFinal = valorCelda ?? '—';
                     if (typeof valorCelda === 'number' && compactNumbers) {
                       valorFinal = valorCelda % 1 === 0 ? valorCelda : valorCelda.toFixed(2);
@@ -75,7 +74,7 @@ function Tabla({ titulo, filas, columnas, compactNumbers = false }) {
 
                     return (
                       <td key={c.key} style={{
-                        ...styles.td,
+                        ...styles.td, 
                         textAlign: c.numeric ? 'right' : 'left',
                         fontFamily: compactNumbers && c.numeric ? 'ui-monospace, monospace' : 'inherit',
                         fontWeight: compactNumbers && c.numeric ? 500 : 'inherit',
@@ -95,18 +94,18 @@ function Tabla({ titulo, filas, columnas, compactNumbers = false }) {
 }
 
 export default function Eventos() {
-  const [eventos, setEventos] = useState([]);
-  const [comandos, setComandos] = useState([]);
-  const [lecturas, setLecturas] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(null);
+  const [eventos,    setEventos]    = useState([]);
+  const [comandos,   setComandos]   = useState([]);
+  const [lecturas,   setLecturas]   = useState([]);
+  const [cargando,   setCargando]   = useState(true);
+  const [error,      setError]      = useState(null);
 
   const cargarDatos = async () => {
     try {
       const [resEv, resCm, resLc] = await Promise.all([
-        fetch(`${API_URL}/api/historico/eventos`),
-        fetch(`${API_URL}/api/historico/comandos`),
-        fetch(`${API_URL}/api/historico/sensores`),
+        fetch('http://192.168.0.14:5000/api/historico/eventos'),
+        fetch('http://192.168.0.14:5000/api/historico/comandos'),
+        fetch('http://192.168.0.14:5000/api/historico/sensores'),
       ]);
 
       if (!resEv.ok || !resCm.ok || !resLc.ok) throw new Error('Error de red');
@@ -132,13 +131,13 @@ export default function Eventos() {
   if (cargando) return (
     <div style={styles.loadingContainer}>
       <div className="spinner"></div>
-      <p style={{ marginTop: '10px' }}>Cargando historial...</p>
+      <p style={{marginTop: '10px'}}>Cargando historial...</p>
     </div>
   );
-
+  
   if (error) return (
     <div style={styles.errorContainer}>
-      <svg style={{ width: '24px', height: '24px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg style={{width: '24px', height: '24px'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
       </svg>
       <span>{error}</span>
@@ -157,26 +156,26 @@ export default function Eventos() {
         filas={lecturas}
         compactNumbers={true}
         columnas={[
-          { key: 'fecha_y_hora', label: 'Fecha / Hora' },
-          { key: 'valor.temp', label: 'Temp (°C)', numeric: true },
-          { key: 'valor.hum', label: 'Hum Aire (%)', numeric: true },
-          { key: 'valor.suelo1', label: 'Suelo 1 (%)', numeric: true },
-          { key: 'valor.suelo2', label: 'Suelo 2 (%)', numeric: true },
-          { key: 'valor.luz', label: 'Luz (lux)', numeric: true },
-          { key: 'valor.gas', label: 'Gas (ppm)', numeric: true },
-          { key: 'estado_relacionado', label: 'Estado', badge: true },
+          { key: 'fecha_y_hora',        label: 'Fecha / Hora' },
+          { key: 'valor.temp',          label: 'Temp (°C)', numeric: true },
+          { key: 'valor.hum',           label: 'Hum Aire (%)', numeric: true },
+          { key: 'valor.suelo1',        label: 'Suelo 1 (%)', numeric: true },
+          { key: 'valor.suelo2',        label: 'Suelo 2 (%)', numeric: true },
+          { key: 'valor.luz',           label: 'Luz (lux)', numeric: true },
+          { key: 'valor.gas',           label: 'Gas (ppm)', numeric: true },
+          { key: 'estado_relacionado',  label: 'Estado', badge: true },
         ]}
       />
 
       <div style={styles.gridDosColumnas}>
-        <Tabla
+        <Tabla 
           titulo="Bitácora de Eventos y Alertas"
           filas={eventos}
           columnas={[
-            { key: 'fecha_y_hora', label: 'Fecha / Hora' },
-            { key: 'tipo_de_dato', label: 'Tipo' },
-            { key: 'valor', label: 'Evento', badge: true },
-            { key: 'estado_relacionado', label: 'Nivel', badge: true },
+            { key: 'fecha_y_hora',        label: 'Fecha / Hora' },
+            { key: 'tipo_de_dato',        label: 'Tipo' },
+            { key: 'valor',               label: 'Evento', badge: true },
+            { key: 'estado_relacionado',  label: 'Nivel', badge: true },
           ]}
         />
 
@@ -184,9 +183,9 @@ export default function Eventos() {
           titulo="Historial de Comandos MQTT"
           filas={comandos}
           columnas={[
-            { key: 'fecha_y_hora', label: 'Fecha / Hora' },
-            { key: 'valor', label: 'Comando', badge: true },
-            { key: 'origen', label: 'Tópico Origen' },
+            { key: 'fecha_y_hora',        label: 'Fecha / Hora' },
+            { key: 'valor',               label: 'Comando', badge: true },
+            { key: 'origen',              label: 'Tópico Origen' },
           ]}
         />
       </div>
