@@ -67,6 +67,7 @@ main_loop:
     mov x5, x26
     bl insertar_lectura
 
+    mov x6, x27
     bl tomar_decision
     
     b main_loop

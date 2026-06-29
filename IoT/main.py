@@ -9,10 +9,12 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import RPi.GPIO as GPIO
 
+
 from globals import shared
 from sensors import Sensors
 from actuadores import Actuadores
 from display import Display
+from motor_bridge import MotorARM64
 
 PREFIX = "grupo19/"
 BROKER = "broker.emqx.io"
@@ -69,6 +71,7 @@ class IOT:
         self.Sensors = Sensors()
         self.Display = Display()
         self.Actuadores = Actuadores()
+        self.Motor = MotorARM64("./src/motor")  
         
         self._init_mongo()
         self._init_mqtt()
@@ -240,13 +243,63 @@ class IOT:
             print("Sistema de Invernadero Iniciado...")
             while self.running:
                 self.Sensors.read_sensors()
+
+
+                decision = self.Motor.evaluar(
+                    shared.temperature, shared.humidity,
+                    shared.suelo_area1_pct, shared.suelo_area2_pct,
+                    shared.luz_lux, shared.gas_ppm,
+                    shared.modo_operacion
+                )
+
+                if decision:
+                    shared.arm64_decisions_list = decision
+                    # Mantenemos compatibilidad con variables antiguas guardando el último elemento procesado
+                    shared.arm64_decision = decision[-1] if len(decision) > 0 else {}
+                    
+                    # Registrar en MongoDB 
+                    if shared.modo_operacion == "AUTOMATICO":
+                        acciones_lista = [d.get("ACTION", "NO_ACTION") for d in decision]
+                        riesgos_lista = [d.get("RISK", "LOW") for d in decision]
+                        estados_lista = [d.get("STATUS", "OK") for d in decision]
+                        
+                        # Extraemos la acción física más prioritaria 
+                        accion_principal = "NO_ACTION"
+                        for prioritaria in ["ALARM_ON", "RIEGO_1_ON", "RIEGO_2_ON", "FAN_ON", "LIGHT_ON"]:
+                            if prioritaria in acciones_lista:
+                                accion_principal = prioritaria
+                                break
+                        if accion_principal == "NO_ACTION" and "LED_GREEN" in acciones_lista:
+                            accion_principal = "LED_GREEN"
+
+                        # Extraemos el riesgo más alto
+                        riesgo_principal = "LOW"
+                        if "CRITICAL" in riesgos_lista: riesgo_principal = "CRITICAL"
+                        elif "HIGH" in riesgos_lista: riesgo_principal = "HIGH"
+                        elif "MEDIUM" in riesgos_lista: riesgo_principal = "MEDIUM"
+
+                        # Verificamos si hubo algún error en el procesamiento de ARM64
+                        status_principal = "ERROR" if "ERROR" in estados_lista else "OK"
+
+                        
+                        self.insertar_mongo("arm64_results", {
+                            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "source": "live_engine",
+                            "input": f"{shared.temperature},{shared.humidity},{shared.suelo_area1_pct},{shared.suelo_area2_pct},{shared.luz_lux},{shared.gas_ppm}",
+                            "result": decision,
+                            "decision": accion_principal,
+                            "risk": riesgo_principal,
+                            "status": status_principal,
+                        })
+
                 self.Actuadores.update()
                 self.Display.update()
-                
+
                 time.sleep(self.intervals["principal"])
                 
         except KeyboardInterrupt:
             print("Deteniendo sistema de forma segura...")
+            self.Motor.cleanup()
             self.running = False
             self.Sensors.cleanup()      
             self.Actuadores.cleanup()   

@@ -18,8 +18,14 @@
 //nombre del archivo de salida
 file_out:    .asciz "resultado_rmse.txt"
 
-//aqui definimos los strings que se van a concatenar en la salida estructurada, por ahora solo estamos probando el MSE, asi que solo mostraremos eso.
-str_mse:    .asciz "MSE="
+//aqui definimos los strings que se van a concatenar en la salida estructurada
+str_calc:    .asciz "CALC=RMSE\n"
+str_col:     .asciz "COLUMN="
+str_wstart:  .asciz "WINDOW_START="
+str_wend:    .asciz "WINDOW_END="
+str_count:   .asciz "COUNT="
+str_ideal:   .asciz "IDEAL="
+str_rmse:    .asciz "RMSE="
 str_ok:      .asciz "STATUS=OK\n"
 
 
@@ -83,7 +89,7 @@ _start:
     mov x23, x3                 // x23 = direccion para restaurar el stack al final
 
     // ----------------------------------------------------------------------
-    // AQUI REDIRIGIMOS SEGUN LA COLUMNA SOLICITADA PARA ASIGNAR EL VALOR IDEAL RESPECTIVO
+    // AQUI DEFINIMOS TODOS NUESTROS VALORES IDEALES PARA CADA COLUMNA
     // ----------------------------------------------------------------------
     cmp x11, #2
     beq ideal_temp               // TEMP
@@ -118,7 +124,7 @@ ideal_luz:
     mov x21, #500                // Nivel de luz ideal
     b ideal_done
 ideal_gas:
-    mov x21, #1100                // Nivel de gas base, seguro
+    mov x21, #1100              // Nivel de gas base, seguro
 ideal_done:
 
     // ----------------------------------------------------------------------
@@ -139,7 +145,9 @@ sum_loop:
     b sum_loop
 sum_done: // terminamos de iterar, ahora vamos a hacer los calculos finales para obtener el MSE y luego el RMSE
     udiv x10, x6, x22              // MSE = suma(ERROR2_i) / N 
-    mov x26, x10                    // x26 = MSE final  NOTA: por ahora no hemos implementado la raiz cuadrado asi que por ahora solo mostraremos el MSE, no el RMSE
+    mov x0, x10
+    bl isqrt // pasamos en x0 el valor de MSE para que se vaya a la raiz cuadrada entera
+    mov x26, x0                 // x26 = RMSE 
     
     //aqui haremos la raiz cuadrada del valor en x10 
 
@@ -152,7 +160,35 @@ sum_done: // terminamos de iterar, ahora vamos a hacer los calculos finales para
     ldr x1, =out_buf
     strb wzr, [x1]                 // asegurar que el buffer empiece vacio
 
-    ldr x0, =str_mse
+    ldr x0, =str_calc
+    bl append_string
+
+    ldr x0, =str_col
+    bl append_string
+    mov x0, x11
+    bl append_number
+
+    ldr x0, =str_wstart
+    bl append_string
+    mov x0, x24
+    bl append_number
+
+    ldr x0, =str_wend
+    bl append_string
+    mov x0, x25
+    bl append_number
+
+    ldr x0, =str_count
+    bl append_string
+    mov x0, x22
+    bl append_number
+
+    ldr x0, =str_ideal
+    bl append_string
+    mov x0, x21
+    bl append_number
+
+    ldr x0, =str_rmse
     bl append_string
     mov x0, x26                   
     bl append_number
@@ -213,6 +249,25 @@ insuff_error:
 
 
 // ============================================================================
+// isqrt: raiz cuadrada entera truncada de x0, retorna en x0
+// ============================================================================
+isqrt:
+    mov x1, #0
+isqrt_loop:
+    add x3, x1, #1
+    mul x4, x3, x3
+    cmp x4, x0
+    bgt isqrt_done
+    mov x1, x3
+    b isqrt_loop
+isqrt_done:
+    mov x0, x1
+    ret
+
+
+
+
+// ============================================================================
 // append_string: concatena el string apuntado por x0 al final de out_buf
 // ============================================================================
 append_string:
@@ -239,3 +294,5 @@ append_number:
     bl append_string
     ldp x29, x30, [sp], #16
     ret
+
+    .include "utils.s"

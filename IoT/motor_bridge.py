@@ -1,4 +1,5 @@
 import subprocess
+import select
 
 #Este es el motor, aqui ejecutamos un subproceso que corre el motor ARM64 y le pasamos los datos de los sensores para que nos devuelva la decision de que hacer.
 class MotorARM64:
@@ -20,15 +21,29 @@ class MotorARM64:
 
         try:
             # Enviar datos al motor
+            print("PYTHON ENVIA A ARM64:", linea.strip())
             self.proceso.stdin.write(linea)
             self.proceso.stdin.flush()
             
-            # Leer la decisión generada por ARM64
-            respuesta = self.proceso.stdout.readline().strip()
-            return self._parsear_respuesta(respuesta)
+            decisiones = []
+            while True:
+                # Esperar hasta 0.05 segundos por datos en el buffer para capturar múltiples líneas consecutivas
+                listos, _, _ = select.select([self.proceso.stdout], [], [], 0.05)
+                if listos:
+                    # Leer la decisión generada por ARM64
+                    respuesta = self.proceso.stdout.readline().strip()
+                    if not respuesta: 
+                        break
+                    print("python RECIBE DE ARM64:", respuesta)
+                    datos = self._parsear_respuesta(respuesta)
+                    if datos: 
+                        decisiones.append(datos)
+                else:
+                    break # Buffer vacío, terminó el ciclo completo de respuestas de este turno
+            return decisiones
         except Exception as e:
             print(f"[ERROR ARM64] {e}")
-            return None
+            return []
 
     def _parsear_respuesta(self, respuesta):
         # Convierte "ACTION=RIEGO_1_ON;TARGET=SOIL1;RISK=HIGH..." en un diccionario

@@ -1,19 +1,28 @@
 .global _start
-.global reg_lin_spl
+//.global reg_lin_spl//al final ya ni sirvio
 
 .data
-str_modulo:         .asciz "CALC=LINEAR_REGRESION\n"
+str_modulo:         .asciz "CALC=LINEAR_REGRESSION\n"
 str_columna:        .asciz "COLUMN="
 str_f_inicio:       .asciz "WINDOW_START="
-str_f_final:        .asciz "WINDOW_ENDE="
+str_f_final:        .asciz "WINDOW_END="
 str_contados:       .asciz "COUNT="
 str_pendiente:      .asciz "SLOPE_X100="
 str_tendencia:      .asciz "TREND="
 str_status:         .asciz "STATUS=OK\n"
-str_descendente:    .asciz "DESCENDINDG\n"
+str_descendente:    .asciz "DESCENDING\n"
 str_ascendente:     .asciz "ASCENDING\n"
 str_estable:        .asciz "STABLE\n"
 out_filename:       .asciz "resultado_regresion.txt"
+
+//ahora si ya a manejar el txt de error
+err_status:         .asciz "STATUS=ERROR\n"
+err_args:           .asciz "ERROR=INSUFFICIENT_ARGUMENTS\n"
+det_args:           .asciz "DETAIL=INVALID_ARGUMENT_COUNT\n"
+err_col:            .asciz "ERROR=INVALID_COLUMN\n"
+det_col:            .asciz "DETAIL=COLUMN_NOT_IN_HEADER\n"
+err_rango:          .asciz "ERROR=INVALID_RANGE\n"
+det_rango:          .asciz "DETAIL=START_GREATER_THAN_END\n"
 
 .bss
 buffer_var: .skip 256 //jalado tambien del modulo 2, le de las varianzas
@@ -22,10 +31,12 @@ buffer_var: .skip 256 //jalado tambien del modulo 2, le de las varianzas
 _start:
     mov x19, sp
 
-    //leyendo los argumentos
-    ldr x0, [x19, #16]
-    ldrb w11, [x0]          //todo esto fue solo la columna xd
-    sub x11, x11, #48
+    //leyendo los argumentos//me cambiaron el orden de los argumentos :,c
+    ldr x0, [x19]
+    cmp x0, #5
+    blt arg_error           //pues faltaron argumentos si se llego hasta aqui
+
+    ldr x21, [x19, #16]     //ahora esto es el nombre del archivo
 
     ldr x0, [x19, #24]
     bl atoi_argv            //este si no estoy mal es el inicio de las filas
@@ -35,7 +46,17 @@ _start:
     bl atoi_argv            //y este el final
     mov x25, x10
 
+    ldr x0, [x19, #40]
+    bl atoi_argv            //todo esto fue solo la columna xd//actualizacion xd: al final tuve que implementar esto para lanzar un error de columna 
+    mov x11, x10            
+
     bl utils_read_column_to_stack
+
+    cmp x4, #1              
+    beq col_error           // columna no existe
+    cmp x4, #2
+    beq rango_error         //si el rango es invalido, aunque creo que no valida como tal si las lineas existe (va a haber que revisar el utils)
+
     mov x20, x0             //inicio de los datos
     mov x21, x1             //tope 
     mov x22, x2             //cantidad de datos que se leyeron
@@ -86,6 +107,37 @@ m_x100:
     sdiv x18, x17, x16      //(numerador * 100)/ denominador
     mov x0, x18
     ret 
+
+//ahora aqui voy a manejar los errores, para la salida del txt
+arg_error:
+    ldr x9,  =err_args
+    ldr x10, =det_args
+    b guardar_error
+col_error:
+    ldr x9,  =err_col
+    ldr x10, =det_col
+    b guardar_error
+rango_error:
+    ldr x9,  =err_rango
+    ldr x10, =det_rango
+    b guardar_error
+
+guardar_error:
+    ldr x1, =buffer_var
+    ldr x3, =err_status         // "STATUS=ERROR" //todas estas cosas las declare en el .data
+    bl copiar_str
+    mov x3, x9                  // "ERROR="
+    bl copiar_str
+    mov x3, x10                 // "DETAIL="
+    bl copiar_str
+    ldr x0, =buffer_var
+    sub x1, x1, x0
+    ldr x2, =out_filename
+    bl utils_write_result
+    mov x0, #1
+    mov x8, #93
+    svc #0
+    
 //todo esto lo jale de mi modulo2 original xd, agregando el manejo del negativo
 guardar_txt:
     stp x29, x30, [sp, #-16]!
@@ -170,3 +222,5 @@ avanzar:
     sub x1, x1, #1
     ldp x29, x30, [sp], #16
     ret
+
+.include "utils.s"
